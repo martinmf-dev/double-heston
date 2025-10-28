@@ -34,7 +34,7 @@ class Heston:
         self.sigma = sigma
         self.rho = rho
 
-    def cf_integrand(self, phis, Pnum, K, tau, S, v):
+    def cf(self, phis, Pnum, K, tau, S, v):
         """
         Compute the integrand of the characteristic function for the risk-neutral probabilities.
     
@@ -83,11 +83,8 @@ class Heston:
         G = (1-c*np.exp(-d*tau))/(1-c)
         C = (r-q)*1j*phis*tau + (kappa*theta)/sigma**2*((b-rho*sigma*1j*phis-d)*tau-2*np.log(G))
     
-        f = np.exp(C+D*v+1j*phis*x)
-    
-        integrand = np.exp(-1j*phis*np.log(K))*f/(1j*phis)
+        return np.exp(C+D*v+1j*phis*x)
         
-        return integrand.real
     
     def cf_price(self, Lphi,Uphi,dphi, K, tau, S, v):
         """
@@ -120,9 +117,19 @@ class Heston:
         
         # Integration grid
         phis = np.arange(Lphi, Uphi, dphi)
-    
-        int1 = self.cf_integrand(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
-        int2 = self.cf_integrand(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
+
+        # integrand = np.exp(-1j*phis*np.log(K))*f/(1j*phis)
+        
+        # return integrand.real
+
+        f1 = self.cf(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
+        f2 = self.cf(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
+
+        int1 = np.real(np.exp(-1j*phis*np.log(K))*f1/(1j*phis))
+        int2 = np.real(np.exp(-1j*phis*np.log(K))*f2/(1j*phis))
+        
+        # int1 = self.cf_integrand(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
+        # int2 = self.cf_integrand(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
         
         # Integrals
         I1 = np.trapezoid(int1, dx=dphi)
