@@ -8,6 +8,8 @@ class DoubleHeston:
     ----------
     r : float, default=0.03
         Risk-free interest rate.
+    q : float, default=0.0
+        Dividend yield.
     kappa1 : float, default=5.0
         Mean-reversion speed of variance 1.
     kappa2 : float, default=5.0
@@ -26,15 +28,16 @@ class DoubleHeston:
         Correlation between Brownian motions
     """
 
-
+    # CHANGE THIS, THE REFERENCE VALUES FOR DOUBLE HESTON ARE DIFFERENT
     # Reference values. T=0.5, S=100, K=100, q=0.02, r=0.03, kappa=5, sigma=0.5, rho=-0.8, theta=v0=0.05, 
     # trapezoid rule with phi in [0.00001,50], increments of 0.001, 
     # Put: 5.7590, Call: 6.2528
     # If q=0 (no dividend)
     # Put: 5.3790, Call: 6.8678
     
-    def __init__(self, r=0.03, kappa1=0.9, kappa2=1.2, theta1=0.1, theta2=0.15, sigma1=0.1, sigma2=0.2, rho1=-0.5, rho2=-0.5):
+    def __init__(self, r=0.03, q=0.0, kappa1=0.9, kappa2=1.2, theta1=0.1, theta2=0.15, sigma1=0.1, sigma2=0.2, rho1=-0.5, rho2=-0.5):
         self.r = r
+        self.q = q
         self.kappa1 = kappa1
         self.kappa2 = kappa2
         self.theta1 = theta1
@@ -44,108 +47,131 @@ class DoubleHeston:
         self.rho1 = rho1
         self.rho2 = rho2
 
-    # def cf_integrand(self, phis, Pnum, K, tau, S, v):
-    #     """
-    #     Compute the integrand of the characteristic function for the risk-neutral probabilities.
+    import warnings
+
+class DoubleHeston:
+    def __init__(self, kappa1, theta1, sigma1, rho1,
+                       kappa2, theta2, sigma2, rho2,
+                       r, q):
+        """
+        Initialize Double Heston model parameters.
+        Warn that the scheme has not been fully verified.
+        """
+        # model parameters
+        self.kappa1 = kappa1
+        self.theta1 = theta1
+        self.sigma1 = sigma1
+        self.rho1 = rho1
+        self.kappa2 = kappa2
+        self.theta2 = theta2
+        self.sigma2 = sigma2
+        self.rho2 = rho2
+        self.r = r
+        self.q = q
+
+    def cf(self, phis, Pnum, K, tau, S, v1, v2):
+        """
+        Compute the integrand of the characteristic function for the risk-neutral probabilities.
     
-    #     This integrand is used in the semi-analytical Heston pricing formula.
+        This integrand is used in the semi-analytical double Heston pricing formula.
     
-    #     Parameters
-    #     ----------
-    #     phis : array_like
-    #         Array of integration variable phi values.
-    #     Pnum : int
-    #         1 or 2, selects which risk-neutral probability (P1 or P2).
-    #     K : float
-    #         Strike price of the option.
-    #     tau : float
-    #         Time to maturity (T - t).
-    #     S : float
-    #         Spot price at the current time.
-    #     v : float
-    #         Spot variance at the current time.
+        Parameters
+        ----------
+        phis : array_like
+            Array of integration variable phi values.
+        Pnum : int
+            1 or 2, selects which risk-neutral probability (P1 or P2).
+        K : float
+            Strike price of the option.
+        tau : float
+            Time to maturity (T - t).
+        S : float
+            Spot price at the current time.
+        v1 : float
+            Spot variance 1 at the current time.
+        v2 : floate
+            Spot variance 2 at the current time.
     
-    #     Returns
-    #     -------
-    #     integrand : ndarray
-    #         Real part of the integrand evaluated at each phi.
-    #     """
+        Returns
+        -------
+        integrand : ndarray
+            Real part of the integrand evaluated at each phi.
+        """
         
-    #     r, q = self.r, self.q
-    #     kappa, theta, sigma, rho = self.kappa, self.theta, self.sigma, self.rho
+        r, q = self.r, self.q
+        kappa1, theta1, sigma1, rho1 = self.kappa1, self.theta1, self.sigma1, self.rho1
+        kappa2, theta2, sigma2, rho2 = self.kappa2, self.theta2, self.sigma2, self.rho2
 
         
-    #     x = np.log(S)
-        
-    #     if Pnum==1:
-    #         b = kappa - rho*sigma
-    #         u = 1/2
-    #     elif Pnum==2:
-    #         b= kappa
-    #         u = -1/2
-    #     else:
-    #         raise ValueError(f"Invalid Pnum: {Pnum}. Must be 1 or 2.")
-    
-    #     d = np.sqrt((rho*sigma*1j*phis-b)**2-sigma**2*(2*u*1j*phis-phis**2))
-    #     c = (b-rho*sigma*1j*phis-d)/(b-rho*sigma*1j*phis+d)
-    
-    #     D = (b-rho*sigma*1j*phis-d)/sigma**2*((1-np.exp(-d*tau))/(1-c*np.exp(-d*tau)))
-    #     G = (1-c*np.exp(-d*tau))/(1-c)
-    #     C = (r-q)*1j*phis*tau + (kappa*theta)/sigma**2*((b-rho*sigma*1j*phis-d)*tau-2*np.log(G))
-    
-    #     f = np.exp(C+D*v+1j*phis*x)
-    
-    #     integrand = np.exp(-1j*phis*np.log(K))*f/(1j*phis)
-        
-    #     return integrand.real
-    
-    # def cf_price(self, Lphi,Uphi,dphi, K, tau, S, v):
-    #     """
-    #     Compute the European call option price using the Heston characteristic function.
-    
-    #     Parameters
-    #     ----------
-    #     Lphi : float
-    #         Lower bound of integration for phi.
-    #     Uphi : float
-    #         Upper bound of integration for phi.
-    #     dphi : float
-    #         Step size for numerical integration.
-    #     K : float
-    #         Strike price.
-    #     tau : float
-    #         Time to maturity.
-    #     S : float
-    #         Spot price.
-    #     v : float
-    #         Spot variance.
-    
-    #     Returns
-    #     -------
-    #     call_price : float
-    #         The Heston call option price.
-    #     """
-        
-    #     r, q = self.r, self.q
-        
-    #     # Integration grid
-    #     phis = np.arange(Lphi, Uphi, dphi)
-    
-    #     int1 = self.cf_integrand(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
-    #     int2 = self.cf_integrand(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
-        
-    #     # Integrals
-    #     I1 = np.trapezoid(int1, dx=dphi)
-    #     I2 = np.trapezoid(int2, dx=dphi)
-    
-    #     # Probabilities
-    #     P1 = 0.5 + I1 / np.pi
-    #     P2 = 0.5 + I2 / np.pi
-    
-    #     # Call price
-    #     call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
+        x = np.log(S)
 
-    #     return call_price
+        d1 = np.sqrt((kappa1-rho1*sigma1*phis*1j)**2+sigma1**2*phis*(phis+1j))
+        d2 = np.sqrt((kappa2-rho2*sigma2*phis*1j)**2+sigma2**2*phis*(phis+1j))
+        c1 = (kappa1-rho1*sigma1*phis*1j-d1)/(kappa1-rho1*sigma1*phis*1j+d1)
+        c2 = (kappa2-rho2*sigma2*phis*1j-d2)/(kappa2-rho2*sigma2*phis*1j+d2)
+
+        B1 = (kappa1-rho1*sigma1*phis*1j-d1)/(sigma1**2)*((1-np.exp(-d1*tau))/(1-c1*np.exp(-d1*tau)))
+        B2 = (kappa2-rho2*sigma2*phis*1j-d2)/(sigma2**2)*((1-np.exp(-d2*tau))/(1-c2*np.exp(-d2*tau)))
+        G1 = (1-c1*np.exp(-d1*tau))/(1-c1)
+        G2 = (1-c2*np.exp(-d2*tau))/(1-c2)
+
+        A =( (r-q)*phis*1j*tau + (kappa1*theta1)/sigma1**2*((kappa1-rho1*sigma1*phis*1j-d1)*tau-2*np.log(G1))
+                               + (kappa2*theta2)/sigma2**2*((kappa2-rho2*sigma2*phis*1j-d2)*tau-2*np.log(G2)))
+    
+        return np.exp(A+1j*phis*x+B1*v1+B2*v2)
+    
+    def cf_price(self, Lphi,Uphi,dphi, K, tau, S, v1, v2):
+        """
+        Compute the European call option price using the Double Heston characteristic function.
+    
+        Parameters
+        ----------
+        Lphi : float
+            Lower bound of integration for phi.
+        Uphi : float
+            Upper bound of integration for phi.
+        dphi : float
+            Step size for numerical integration.
+        K : float
+            Strike price.
+        tau : float
+            Time to maturity.
+        S : float
+            Spot price.
+        v1: float
+            Spot variance 1.
+        v2: float
+            Spot variance 2.
+    
+        Returns
+        -------
+        call_price : float
+            The Double Heston call option price.
+        """
+        
+        r, q = self.r, self.q
+        
+        # Integration grid
+        phis = np.arange(Lphi, Uphi, dphi)
+
+        f1 = self.cf(phis=phis-1j, Pnum=1, K=K, tau=tau, S=S, v1=v1, v2=v2)
+        f2 = self.cf(phis=phis, Pnum=1, K=K, tau=tau, S=S, v1=v1, v2=v2)
+        int1 = np.real(np.exp(-1j*phis*np.log(K))*f1/(1j*phis*S*np.exp((r-q)*tau)))
+        int2 = np.real(np.exp(-1j*phis*np.log(K))*f2/(1j*phis))
+
+        
+        # Integrals
+        I1 = np.trapezoid(int1, dx=dphi)
+        I2 = np.trapezoid(int2, dx=dphi)
+    
+        # Probabilities
+        P1 = 0.5 + I1 / np.pi
+        P2 = 0.5 + I2 / np.pi
+    
+        # Call price
+        call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
+
+        return call_price
 
     def simulate_paths(self, N_paths, N_steps, T, S0, v01, v02, seed):
         """
@@ -176,10 +202,10 @@ class DoubleHeston:
             Simulated variance 2 paths, shape (N_paths, N_steps).
         """
         
-        r = self.r
+        r, q = self.r, self.q
         kappa1, theta1, sigma1, rho1 = self.kappa1, self.theta1, self.sigma1, self.rho1
         kappa2, theta2, sigma2, rho2 = self.kappa2, self.theta2, self.sigma2, self.rho2
-
+        
         dt= T/(N_steps-1)
         
         # Constants required for motion correlations
@@ -216,7 +242,7 @@ class DoubleHeston:
             V1[:,step] = np.maximum(0,V1[:,step])
             V2[:,step] = V2[:,step-1] + kappa2*(theta2-V2[:,step-1])*dt + sigma2*np.sqrt(V2[:,step-1])*np.sqrt(dt)*G2[:,step]
             V2[:,step] = np.maximum(0,V2[:,step])
-            S[:,step] = np.exp(r*(step)*dt)*np.exp(np.log(np.exp(-r*(step-1)*dt)*S[:,step-1])
+            S[:,step] = np.exp((r-q)*(step)*dt)*np.exp(np.log(np.exp(-(r-q)*(step-1)*dt)*S[:,step-1])
                                                  +K01+K11*V1[:,step-1]+K21*V1[:,step]
                                                  +np.sqrt(K31*(V1[:,step-1]+V1[:,step]))*B1[:,step]
                                                  +K02+K12*V2[:,step-1]+K22*V2[:,step]
