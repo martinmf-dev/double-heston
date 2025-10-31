@@ -173,6 +173,39 @@ class DoubleHeston:
 
         return call_price
 
+    def price_greeks(self, Lphi, Uphi, dphi, K, tau, S, v1, v2):
+        """
+        Compute call price and delta (vectorized over phis, single path S/v).
+
+        Returns a dictionary with:
+        - "call price": call price
+        - "delta": Δ = exp(-q*tau)*P1
+        """
+
+        r, q = self.r, self.q
+        
+        # Integration grid
+        phis = np.arange(Lphi, Uphi, dphi)
+
+        f1 = self.cf(phis=phis-1j, Pnum=1, K=K, tau=tau, S=S, v1=v1, v2=v2)
+        f2 = self.cf(phis=phis, Pnum=1, K=K, tau=tau, S=S, v1=v1, v2=v2)
+        int1 = np.real(np.exp(-1j*phis*np.log(K))*f1/(1j*phis*S*np.exp((r-q)*tau)))
+        int2 = np.real(np.exp(-1j*phis*np.log(K))*f2/(1j*phis))
+     
+        # Integrals
+        I1 = np.trapezoid(int1, dx=dphi)
+        I2 = np.trapezoid(int2, dx=dphi)
+    
+        # Probabilities
+        P1 = 0.5 + I1 / np.pi
+        P2 = 0.5 + I2 / np.pi
+    
+        # Call price
+        call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
+        delta = np.exp(-q*tau)*P1
+
+        return {"call_price": call_price, "delta": delta}
+    
     def simulate_paths(self, N_paths, N_steps, T, S0, v01, v02, seed):
         """
         Simulate asset and variance paths using the scheme by Gauthier and Possamai for the Double Heston model.

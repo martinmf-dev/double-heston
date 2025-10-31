@@ -118,18 +118,13 @@ class Heston:
         # Integration grid
         phis = np.arange(Lphi, Uphi, dphi)
 
-        # integrand = np.exp(-1j*phis*np.log(K))*f/(1j*phis)
-        
-        # return integrand.real
 
         f1 = self.cf(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
         f2 = self.cf(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
 
         int1 = np.real(np.exp(-1j*phis*np.log(K))*f1/(1j*phis))
         int2 = np.real(np.exp(-1j*phis*np.log(K))*f2/(1j*phis))
-        
-        # int1 = self.cf_integrand(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
-        # int2 = self.cf_integrand(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
+
         
         # Integrals
         I1 = np.trapezoid(int1, dx=dphi)
@@ -143,6 +138,35 @@ class Heston:
         call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
 
         return call_price
+
+    def price_greeks(self, Lphi, Uphi, dphi, K, tau, S, v):
+        """
+        Compute call price and delta (vectorized over phis, single path S/v).
+
+        Returns a dictionary with:
+        - "call_price": call price
+        - "delta": Δ = exp(-q*tau)*P1
+        """
+        r, q = self.r, self.q
+
+        phis = np.arange(Lphi, Uphi, dphi)
+
+        f1 = self.cf(phis=phis, Pnum=1, K=K, tau=tau, S=S, v=v)
+        f2 = self.cf(phis=phis, Pnum=2, K=K, tau=tau, S=S, v=v)
+
+        int1 = np.real(np.exp(-1j * phis * np.log(K)) * f1 / (1j * phis))
+        int2 = np.real(np.exp(-1j * phis * np.log(K)) * f2 / (1j * phis))
+
+        I1 = np.trapezoid(int1, dx=dphi)
+        I2 = np.trapezoid(int2, dx=dphi)
+
+        P1 = 0.5 + I1 / np.pi
+        P2 = 0.5 + I2 / np.pi
+
+        call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
+        delta = np.exp(-q * tau) * P1
+
+        return {"call_price": call_price, "delta": delta}
 
     def simulate_paths(self, N_paths, N_steps, T, S0, v0, seed):
         """
