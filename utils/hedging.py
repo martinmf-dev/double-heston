@@ -1,6 +1,20 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
-def delta_hedge(model, model_type, N_paths, N_steps, K, T, S0, seed, **kwargs):
+def hedge_plot(opt_price, portfolio):
+    plt.figure(figsize=(10,5))
+    plt.plot(opt_price, label="Model option price $C_t$")
+    plt.plot(portfolio, '--', label="Hedging portfolio")
+    plt.xlabel("Time step")
+    plt.ylabel("Value")
+    plt.title("Portfolio vs model option price")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+
+def delta_hedge_loops(model, model_type, N_paths, N_steps, K, T, S0, seed, **kwargs):
     """
     Delta hedging for a single path (seller's point of view) with stepwise cash discounting.
     
@@ -90,15 +104,22 @@ def delta_hedge(model, model_type, N_paths, N_steps, K, T, S0, seed, **kwargs):
     
             # portfolio value after rebalancing
             portfolio[i,t] = delta[i,t] * S_path[i,t] + cash[i,t]
-    
+
+
+        if model_type == 'heston':
+            greeks = model.price_greeks(Lphi=Lphi, Uphi=Uphi, dphi=dphi, K=K, tau=tau[-1], S=S_path[i,-1], v=V_path[i,-1])
+        else:
+            greeks = model.price_greeks(Lphi=Lphi, Uphi=Uphi, dphi=dphi, K=K, tau=tau[-1], S=S_path[i,-1], v1=V1_path[i,-1], v2=V2_path[i,-1])
+            
+        opt_price[i,-1] = greeks["call_price"]
+        delta[i,-1] = greeks["delta"] 
+        
         # at maturity: accrue final interest
-        cash[i,-1] = cash[i,-2] * np.exp(r * dt)
-        delta[i,-1] = delta[i,-2]  # no need to rebalance
-        portfolio[i,-1] = delta[i,-1] * S_path[i,-1] + cash[i,-1]
+        cash[i,-1] = cash[i,-2] * np.exp(r * dt)     
+        portfolio[i,-1] = delta[i,-2] * S_path[i,-1] + cash[i,-1]
     
         # compute liability and hedging error
         liability_T[i] = max(S_path[i,-1] - K, 0)
-        opt_price[i,-1] = liability_T[i]
         hedging_error[i] = portfolio[i,-1] - liability_T[i]
 
         print(f"path {i} finished")
@@ -122,99 +143,24 @@ def delta_hedge(model, model_type, N_paths, N_steps, K, T, S0, seed, **kwargs):
         "hedging_error": hedging_error,
     }
 
-# def delta_hedge_onepath(model, K, N_steps, T, S0, v0, seed):
-#     """
-#     Delta hedging for a single path (seller's point of view) with stepwise cash discounting.
-
-#     Parameters
-#     ----------
-#     model : instance
-#         A model implementing .simulate_paths() and .price_greeks().
-#     K : float
-#         Option strike.
-#     N_steps : int
-#         Number of time steps.
-#     T : float
-#         Time to maturity.
-#     S0, v0 : float
-#         Initial stock price and variance.
-#     seed : int
-#         Random seed.
-
-#     Returns
-#     -------
-#     portfolio_T : float
-#         Hedged portfolio value at maturity.
-#     liability_T : float
-#         Option payoff at maturity.
-#     hedging_error : float
-#         Difference between portfolio and liability.
-#     """
-#     # integration parameters for CF pricing
-#     Lphi = 1e-5
-#     Uphi = 50
-#     dphi = 0.001
+def price_greeks_vect_test(model, model_type, N_paths, N_steps, K, T, S0, seed, **kwargs):
     
-#     # 1. simulate one path
-#     S_path, V_path = model.simulate_paths(N_paths=1, N_steps=N_steps, T=T, S0=S0, v0=v0, seed=seed)
-#     S_path = S_path[0]  # shape (N_steps,)
-#     V_path = V_path[0]
-
-#     dt = T / (N_steps - 1)
-#     r = model.r
-
-#     # time to maturity
-#     tau = (N_steps - 1 - np.arange(N_steps)) * dt
-
-#     # initialize arrays for recording
-#     opt_price = np.zeros(N_steps)
-#     delta = np.zeros(N_steps)
-#     cash = np.zeros(N_steps)
-#     portfolio = np.zeros(N_steps)
-
-#     # initial greeks, delta, and cash
-#     greeks = model.price_greeks(Lphi=Lphi, Uphi=Uphi, dphi=dphi, K=K, tau=tau[0], S=S_path[0], v=V_path[0])
-#     opt_price[0] = greeks["call_price"]
-#     delta[0] = greeks["delta"]
-#     cash[0] = greeks["call_price"] - delta[0] * S_path[0]  # initial hedge
-
-#     # initial portfolio value
-#     portfolio[0] = delta[0] * S_path[0] + cash[0]
-
-#     # hedging loop
-#     for t in range(1, N_steps - 1):  # stop before maturity
-#         # accrue interest on cash
-#         cash[t] = cash[t-1] * np.exp(r * dt)
-
-#         # compute new delta
-#         greeks = model.price_greeks(Lphi=Lphi, Uphi=Uphi, dphi=dphi, K=K, tau=tau[t], S=S_path[t], v=V_path[t])
-#         delta[t] = greeks["delta"]
-#         opt_price[t] = greeks["call_price"]
+    if model_type=='heston':
+        S,V=model.simulate_paths(N_paths=N_paths, N_steps=N_steps, T=T, S0=S0, seed=seed, **kwargs)
+    elif model_type=='doubleheston':
+        S,V1,V2 = model.simulate_paths(N_paths=N_paths, N_steps=N_steps, T=T, S0=S0, seed=seed, **kwargs)
+    else:
+        raise ValueError("model_type must be 'heston' or 'doubleheston'")
         
-#         # rebalance stock
-#         delta_change = delta[t] - delta[t-1]
-#         cash[t] -= delta_change * S_path[t]
+    dt = T / (N_steps - 1)
+    tau = (N_steps - 1 - np.arange(N_steps)) * dt # shape (N_steps,) 
+    tau = np.tile(tau, (N_paths, 1))
 
-#         # portfolio value after rebalancing
-#         portfolio[t] = delta[t] * S_path[t] + cash[t]
+    if model_type == 'heston':
+        greeks_vect=model.price_greeks_vect(Lphi=1e-5, Uphi=50, dphi=0.001, K=K, tau=tau, S=S, v=V)
+    elif model_type=='doubleheston':
+        greeks_vect=model.price_greeks_vect(Lphi=1e-5, Uphi=50, dphi=0.001, K=K, tau=tau, S=S, v1=V1, v2=V2)
+    else:
+        raise ValueError("model_type must be 'heston' or 'doubleheston'")
 
-#     # at maturity: accrue final interest
-#     cash[-1] = cash[-2] * np.exp(r * dt)
-#     delta[-1] = delta[-2]  # no need to rebalance
-#     portfolio[-1] = delta[-1] * S_path[-1] + cash[-1]
-
-#     # compute liability and hedging error
-#     liability_T = max(S_path[-1] - K, 0)
-#     opt_price[-1] = liability_T
-#     hedging_error = portfolio[-1] - liability_T
-
-#     return {
-#         "S_path": S_path,
-#         "V_path": V_path,
-#         "opt_price": opt_price,
-#         "delta": delta,
-#         "cash": cash,
-#         "portfolio": portfolio,
-#         "liability_T": liability_T,
-#         "hedging_error": hedging_error,
-#     }
+    return greeks_vect
