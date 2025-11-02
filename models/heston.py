@@ -57,7 +57,7 @@ class Heston:
     
         Returns
         -------
-        integrand : ndarray
+        ndarray
             Real part of the integrand evaluated at each phi.
         """
         
@@ -84,7 +84,59 @@ class Heston:
         C = (r-q)*1j*phis*tau + (kappa*theta)/sigma**2*((b-rho*sigma*1j*phis-d)*tau-2*np.log(G))
     
         return np.exp(C+D*v+1j*phis*x)
-        
+
+    def cf_vect(self, phis, Pnum, K, tau, S, v):
+        """
+        Compute the integrand of the characteristic function for the risk-neutral probabilities (vectorized).
+    
+        Parameters
+        ----------
+        phis : array, shape (N_phi,)
+            Integration variable.
+        Pnum : int
+            1 or 2, selects which risk-neutral probability (P1 or P2).
+        K : float
+            Strike price (unused in cf itself but kept for signature compatibility).
+        tau : array, shape (N_paths, N_steps)
+            Time to maturity for each path/step.
+        S : array, shape (N_paths, N_steps)
+            Spot prices.
+        v : array, shape (N_paths, N_steps)
+            Spot variances.
+    
+        Returns
+        -------
+        array, shape (N_paths, N_steps, N_phi)
+            Characteristic function evaluated at each phi for all paths and steps.
+        """
+        r, q = self.r, self.q
+        kappa, theta, sigma, rho = self.kappa, self.theta, self.sigma, self.rho
+    
+        # reshape for broadcasting
+        S = S[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        v = v[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        tau = tau[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        phis = phis[np.newaxis, np.newaxis, :]  # (1, 1, N_phi)
+    
+        x = np.log(S)
+    
+        if Pnum == 1:
+            b = kappa - rho * sigma
+            u = 0.5
+        elif Pnum == 2:
+            b = kappa
+            u = -0.5
+        else:
+            raise ValueError("Pnum must be 1 or 2.")
+    
+        d = np.sqrt((rho * sigma * 1j * phis - b) ** 2 - sigma ** 2 * (2 * u * 1j * phis - phis ** 2))
+        c = (b - rho * sigma * 1j * phis - d) / (b - rho * sigma * 1j * phis + d)
+    
+        D = (b - rho * sigma * 1j * phis - d) / sigma ** 2 * ((1 - np.exp(-d * tau)) / (1 - c * np.exp(-d * tau)))
+        G = (1 - c * np.exp(-d * tau)) / (1 - c)
+        C = (r - q) * 1j * phis * tau + (kappa * theta) / sigma ** 2 * ((b - rho * sigma * 1j * phis - d) * tau - 2 * np.log(G))
+    
+        return np.exp(C + D * v + 1j * phis * x)
     
     def cf_price(self, Lphi,Uphi,dphi, K, tau, S, v):
         """
@@ -168,6 +220,53 @@ class Heston:
 
         return {"call_price": call_price, "delta": delta}
 
+    def price_greeks_vect(self, Lphi, Uphi, dphi, K, tau, S, v):
+        """
+        Vectorized Heston call price and delta for multiple paths and steps.
+    
+        Parameters
+        ----------
+        Lphi, Uphi, dphi : floats
+            Integration limits and step size.
+        K : float
+            Option strike.
+        tau : array, shape (N_paths, N_steps)
+            Time to maturity for each path/step.
+        S : array, shape (N_paths, N_steps)
+            Spot prices.
+        v : array, shape (N_paths, N_steps)
+            Spot variances.
+        model : Heston instance
+    
+        Returns
+        -------
+        dict with keys:
+        - 'call_price': array, shape (N_paths, N_steps)
+        - 'delta': array, shape (N_paths, N_steps)
+        """
+        r, q = self.r, self.q
+        phis = np.arange(Lphi, Uphi, dphi)
+    
+        f1 = self.cf_vect(phis, Pnum=1, K=K, tau=tau, S=S, v=v)
+        f2 = self.cf_vect(phis, Pnum=2, K=K, tau=tau, S=S, v=v)
+    
+        # Compute integrand
+        exp_term = np.exp(-1j * phis * np.log(K)) / (1j * phis)
+        int1 = np.real(exp_term[np.newaxis,np.newaxis,:] * f1)
+        int2 = np.real(exp_term[np.newaxis,np.newaxis,:] * f2)
+    
+        # Integrate along phi axis
+        I1 = np.trapezoid(int1, dx=dphi, axis=2)
+        I2 = np.trapezoid(int2, dx=dphi, axis=2)
+    
+        P1 = 0.5 + I1 / np.pi
+        P2 = 0.5 + I2 / np.pi
+    
+        call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
+        delta = np.exp(-q * tau) * P1
+    
+        return {"call_price": call_price, "delta": delta}
+        
     def simulate_paths(self, N_paths, N_steps, T, S0, v0, seed):
         """
         Simulate asset and variance paths using the Euler-Maruyama scheme for the Heston model.

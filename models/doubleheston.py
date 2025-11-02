@@ -119,6 +119,64 @@ class DoubleHeston:
                                + (kappa2*theta2)/sigma2**2*((kappa2-rho2*sigma2*phis*1j-d2)*tau-2*np.log(G2)))
     
         return np.exp(A+1j*phis*x+B1*v1+B2*v2)
+
+    
+    def cf_vect(self, phis, Pnum, K, tau, S, v1, v2):
+        """
+        Compute the integrand of the characteristic function for the risk-neutral probabilities (vectorized).
+    
+        This integrand is used in the semi-analytical double Heston pricing formula.
+    
+        Parameters
+        ----------
+        phis : array, shape (N_phi,)
+            Array of integration variable phi values.
+        Pnum : int
+            1 or 2, selects which risk-neutral probability (P1 or P2).
+        K : float
+            Strike price of the option.
+        tau : array, shape (N_paths, N_steps)
+            Time to maturity (T - t) for each path/ step.
+        S : array, shape (N_paths, N_steps)
+            Spot prices.
+        v1 : array, shape (N_paths, N_steps)
+            Spot variances 1.
+        v2 : array, shape (N_paths, N_steps)
+            Spot variances 2.
+    
+        Returns
+        -------
+        array, shape (N_pahts, N_steps, N_phi)
+            Characteristic function evaluated at each phi for all paths and steps.
+        """
+        
+        r, q = self.r, self.q
+        kappa1, theta1, sigma1, rho1 = self.kappa1, self.theta1, self.sigma1, self.rho1
+        kappa2, theta2, sigma2, rho2 = self.kappa2, self.theta2, self.sigma2, self.rho2
+
+        # reshape for broadcasting
+        S = S[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        v1 = v1[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        v2 = v2[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        tau = tau[:, :, np.newaxis]  # (N_paths, N_steps, 1)
+        phis = phis[np.newaxis, np.newaxis, :]  # (1, 1, N_phi)
+        
+        x = np.log(S)
+
+        d1 = np.sqrt((kappa1-rho1*sigma1*phis*1j)**2+sigma1**2*phis*(phis+1j))
+        d2 = np.sqrt((kappa2-rho2*sigma2*phis*1j)**2+sigma2**2*phis*(phis+1j))
+        c1 = (kappa1-rho1*sigma1*phis*1j-d1)/(kappa1-rho1*sigma1*phis*1j+d1)
+        c2 = (kappa2-rho2*sigma2*phis*1j-d2)/(kappa2-rho2*sigma2*phis*1j+d2)
+
+        B1 = (kappa1-rho1*sigma1*phis*1j-d1)/(sigma1**2)*((1-np.exp(-d1*tau))/(1-c1*np.exp(-d1*tau)))
+        B2 = (kappa2-rho2*sigma2*phis*1j-d2)/(sigma2**2)*((1-np.exp(-d2*tau))/(1-c2*np.exp(-d2*tau)))
+        G1 = (1-c1*np.exp(-d1*tau))/(1-c1)
+        G2 = (1-c2*np.exp(-d2*tau))/(1-c2)
+
+        A =( (r-q)*phis*1j*tau + (kappa1*theta1)/sigma1**2*((kappa1-rho1*sigma1*phis*1j-d1)*tau-2*np.log(G1))
+                               + (kappa2*theta2)/sigma2**2*((kappa2-rho2*sigma2*phis*1j-d2)*tau-2*np.log(G2)))
+    
+        return np.exp(A+1j*phis*x+B1*v1+B2*v2)
     
     def cf_price(self, Lphi,Uphi,dphi, K, tau, S, v1, v2):
         """
@@ -205,6 +263,43 @@ class DoubleHeston:
         delta = np.exp(-q*tau)*P1
 
         return {"call_price": call_price, "delta": delta}
+
+    def price_greeks_vect(self, Lphi, Uphi, dphi, K, tau, S, v1, v2):
+        """
+        Vectorized Double Heston call price and delta for multiple paths and steps.
+
+        Returns
+        ---------------
+        dict with keys:
+        - 'call_price': array, shape (N_paths, N_steps)
+        - 'delta': array, shape (N_paths, N_steps)
+        """
+
+        r, q = self.r, self.q
+        
+        # Integration grid
+        phis = np.arange(Lphi, Uphi, dphi)
+
+        f1 = self.cf_vect(phis=phis-1j, Pnum=1, K=K, tau=tau, S=S, v1=v1, v2=v2)
+        f2 = self.cf_vect(phis=phis, Pnum=1, K=K, tau=tau, S=S, v1=v1, v2=v2)
+        exp_term = np.exp(-1j*phis*np.log(K))/(1j*phis)
+        int1 = np.real(exp_term[np.newaxis,np.newaxis,:]*f1/(S[:,:,np.newaxis]*np.exp((r-q)*tau[:,:,np.newaxis])))
+        int2 = np.real(exp_term[np.newaxis,np.newaxis,:]*f2)
+     
+        # Integrals
+        I1 = np.trapezoid(int1, dx=dphi, axis=2)
+        I2 = np.trapezoid(int2, dx=dphi, axis=2)
+    
+        # Probabilities
+        P1 = 0.5 + I1 / np.pi
+        P2 = 0.5 + I2 / np.pi
+    
+        # Call price
+        call_price = S * np.exp(-q * tau) * P1 - K * np.exp(-r * tau) * P2
+        delta = np.exp(-q*tau)*P1
+
+        return {"call_price": call_price, "delta": delta}
+
     
     def simulate_paths(self, N_paths, N_steps, T, S0, v01, v02, seed):
         """
