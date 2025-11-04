@@ -12,7 +12,7 @@ def hedge_plot(opt_price, portfolio):
     plt.grid(True)
     plt.show()
 
-def delta_hedge(model, K, T, S0, N_paths, N_steps, seed, quad_rule='trapezoidal', quad_params=None, **kwargs):
+def delta_hedge(model, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre', quad_params=None, **kwargs):
     """
     Delta hedging for a single path (seller's point of view) with stepwise cash discounting. Price and delta are vectorized.
     
