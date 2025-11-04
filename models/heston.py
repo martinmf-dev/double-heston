@@ -90,7 +90,7 @@ class Heston:
         return np.exp(C + D * V + 1j * Phi * X)
 
     
-    def price_greeks_vect(self, K, Tau, S, V, Lphi, Uphi, dphi):
+    def price_greeks_vect(self, K, Tau, S, V, quad_rule, quad_params):
         """
         Vectorized Heston call price and delta for multiple paths and steps.
     
@@ -106,7 +106,6 @@ class Heston:
             Spot prices.
         V : array, shape (N_paths, N_steps)
             Spot variances.
-        model : Heston instance
     
         Returns
         -------
@@ -115,26 +114,63 @@ class Heston:
         - 'Delta': array, shape (N_paths, N_steps)
         """
         r, q = self.r, self.q
-        Phi = np.arange(Lphi, Uphi, dphi)
-    
-        f1 = self.cf_vect(Tau=Tau, S=S, V=V, Pnum=1, Phi=Phi)
-        f2 = self.cf_vect(Tau=Tau, S=S, V=V, Pnum=2, Phi=Phi)
-    
-        # Compute integrand
-        exp_term = np.exp(-1j * Phi * np.log(K)) / (1j * Phi)
-        int1 = np.real(exp_term[np.newaxis,np.newaxis,:] * f1)
-        int2 = np.real(exp_term[np.newaxis,np.newaxis,:] * f2)
-    
-        # Integrate along phi axis
-        I1 = np.trapezoid(int1, dx=dphi, axis=2)
-        I2 = np.trapezoid(int2, dx=dphi, axis=2)
-    
+
+        if quad_rule == 'trapezoidal':
+            required = {'Lphi', 'Uphi', 'dphi'}
+            missing = required - quad_params.keys()
+            if missing:
+                raise ValueError(f"missing parameters for trapezoidal quadrature rule: {missing}")
+            
+            Lphi = quad_params['Lphi']
+            Uphi = quad_params['Uphi']
+            dphi = quad_params['dphi']
+        
+            Phi = np.arange(Lphi, Uphi, dphi)
+        
+            f1 = self.cf_vect(Tau=Tau, S=S, V=V, Pnum=1, Phi=Phi)
+            f2 = self.cf_vect(Tau=Tau, S=S, V=V, Pnum=2, Phi=Phi)
+        
+            # Compute integrand
+            exp_term = np.exp(-1j * Phi * np.log(K)) / (1j * Phi)
+            int1 = np.real(exp_term[np.newaxis,np.newaxis,:] * f1)
+            int2 = np.real(exp_term[np.newaxis,np.newaxis,:] * f2)
+        
+            # Integrate along phi axis
+            I1 = np.trapezoid(int1, dx=dphi, axis=2)
+            I2 = np.trapezoid(int2, dx=dphi, axis=2)
+        elif quad_rule == 'laguerre':
+            required = {'nodes'}
+            missing = required - quad_params.keys()
+            if missing:
+                raise ValueError(f"missing parameters for laguerre quadrature rule: {missing}")
+
+            nodes = quad_params['nodes']
+            Phi, W = np.polynomial.laguerre.laggauss(nodes)
+
+            f1 = self.cf_vect(Tau=Tau, S=S, V=V, Pnum=1, Phi=Phi)
+            f2 = self.cf_vect(Tau=Tau, S=S, V=V, Pnum=2, Phi=Phi)
+
+            exp_term = np.exp(-1j * Phi * np.log(K)) / (1j * Phi)
+
+            exp_term = exp_term[np.newaxis, np.newaxis, :]
+            Phi = Phi[np.newaxis, np.newaxis, :]
+            W = W[np.newaxis, np.newaxis, :]
+
+            int1 = np.real(W*np.exp(Phi)*exp_term*f1)
+            int2 = np.real(W*np.exp(Phi)*exp_term*f2)
+
+            I1 = np.sum(int1, axis=2)
+            I2 = np.sum(int2, axis=2)
+            
+        else:
+            raise ValueError("quad_rule must be 'trapezoidal' or 'laguerre'")
+        
         P1 = 0.5 + I1 / np.pi
         P2 = 0.5 + I2 / np.pi
     
         Price_call = S * np.exp(-q * Tau) * P1 - K * np.exp(-r * Tau) * P2
         Delta = np.exp(-q * Tau) * P1
-    
+        
         return {"Price_call": Price_call, "Delta": Delta}
 
         

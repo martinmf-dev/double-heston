@@ -12,7 +12,7 @@ def hedge_plot(opt_price, portfolio):
     plt.grid(True)
     plt.show()
 
-def delta_hedge(model, K, T, S0, N_paths, N_steps,  seed, **kwargs):
+def delta_hedge(model, K, T, S0, N_paths, N_steps, seed, quad_rule='trapezoidal', quad_params=None, **kwargs):
     """
     Delta hedging for a single path (seller's point of view) with stepwise cash discounting. Price and delta are vectorized.
     
@@ -37,12 +37,21 @@ def delta_hedge(model, K, T, S0, N_paths, N_steps,  seed, **kwargs):
         - v0 (Heston) 
         - v01, v02 (DoubleHeston)
     """
-    # integration parameters for CF pricing
-    Lphi = 1e-5
-    Uphi = 50
-    dphi = 0.001
+    # Default parameters for each quadrature rule
+    default_params = {
+        'trapezoidal': {'Lphi': 1e-5, 'Uphi': 50, 'dphi': 0.001},
+        'laguerre': {'nodes': 32}
+    }
+    # Use passed quad_params if not None, otherwise pick default
+    quad_params = quad_params or default_params.get(quad_rule)
+    if quad_params is None:
+        raise ValueError(f"Unknown quad_rule {quad_rule}")
+        
+    param_str = ", ".join(f"{k}={v}" for k,v in quad_params.items())
+    print(f"{quad_rule} quadrature rule with parameters: {param_str}")
+
     
-    # 1. simulate paths
+    #  simulate paths
     sim_paths = model.simulate_paths(T=T, S0=S0, N_paths=N_paths, N_steps=N_steps, seed=seed, **kwargs)
 
     # select paths according to model type
@@ -67,9 +76,9 @@ def delta_hedge(model, K, T, S0, N_paths, N_steps,  seed, **kwargs):
     hedging_error = np.zeros(N_paths)
 
     if model.model_type == 'heston':
-        Greeks = model.price_greeks_vect(K=K, Tau=Tau, S=S, V=V, Lphi=Lphi, Uphi=Uphi, dphi=dphi)
+        Greeks = model.price_greeks_vect(K=K, Tau=Tau, S=S, V=V, quad_rule=quad_rule, quad_params=quad_params)
     elif model.model_type == 'doubleheston':
-        Greeks = model.price_greeks_vect(K=K, Tau=Tau, S=S, V1=V1, V2=V2, Lphi=Lphi, Uphi=Uphi, dphi=dphi)
+        Greeks = model.price_greeks_vect(K=K, Tau=Tau, S=S, V1=V1, V2=V2, quad_rule=quad_rule, quad_params=quad_params)
     else:
         raise ValueError("model_type must be 'heston' or 'doubleheston'")
 
