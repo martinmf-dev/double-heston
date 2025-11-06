@@ -12,7 +12,7 @@ def hedge_plot(opt_price, portfolio):
     plt.grid(True)
     plt.show()
 
-def delta_hedge(model, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre', quad_params=None, **kwargs):
+def delta_hedge(model, mu, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre', quad_params=None, **kwargs):
     """
     Delta hedging for a single path (seller's point of view) with stepwise cash discounting. Price and delta are vectorized.
     
@@ -20,8 +20,8 @@ def delta_hedge(model, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre', q
     ----------
     model : instance
         A model implementing .simulate_paths() and .price_greeks().
-    model_type : str
-        Either 'heston' or 'doubleheston'.
+    mu: float
+        Drift. Set mu=r for risk neutral
     K : float
         Option strike.
     N_steps : int
@@ -52,7 +52,7 @@ def delta_hedge(model, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre', q
 
     
     #  simulate paths
-    sim_paths = model.simulate_paths(T=T, S0=S0, N_paths=N_paths, N_steps=N_steps, seed=seed, **kwargs)
+    sim_paths = model.simulate_paths(mu=mu,T=T, S0=S0, N_paths=N_paths, N_steps=N_steps, seed=seed, **kwargs)
 
     # select paths according to model type
     if model.model_type == 'heston':
