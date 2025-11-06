@@ -174,12 +174,14 @@ class Heston:
         return {"Price_call": Price_call, "Delta": Delta}
 
         
-    def simulate_paths(self, T, S0, v0, N_paths, N_steps, seed):
+    def simulate_paths(self,mu, T, S0, v0, N_paths, N_steps, seed):
         """
         Simulate asset and variance paths using the Euler-Maruyama scheme for the Heston model.
     
         Parameters
         ----------
+        mu: float
+            Drift, set mu=r for risk neutral
         N_paths : int
             Number of Monte Carlo paths.
         N_steps : int
@@ -199,7 +201,7 @@ class Heston:
             Simulated variance paths, shape (N_paths, N_steps).
         """
         
-        r, q = self.r, self.q
+        q = self.q
         kappa, theta, sigma, rho = self.kappa, self.theta, self.sigma, self.rho
         
         # Define Brownian noises for all paths and steps
@@ -221,7 +223,7 @@ class Heston:
         for step in range(1, N_steps):
             V[:,step] = V[:,step-1] + kappa*(theta-V[:,step-1])*dt+sigma*np.sqrt(V[:,step-1])*np.sqrt(dt)*Z_V[:, step]
             V[:,step] = np.maximum(0,V[:,step])
-            S[:,step] = S[:, step-1]*np.exp((r-q-1/2*V[:,step-1])*dt + np.sqrt(V[:,step-1])*np.sqrt(dt)*Z_S[:,step])
+            S[:,step] = S[:, step-1]*np.exp((mu-q-1/2*V[:,step-1])*dt + np.sqrt(V[:,step-1])*np.sqrt(dt)*Z_S[:,step])
         return S, V
 
         
@@ -251,7 +253,7 @@ class Heston:
         """
         
         r = self.r
-        S_paths = self.simulate_paths(N_paths=N_paths, N_steps=N_steps, T=T, S0=S0, v0=v0, seed=seed)[0]
+        S_paths, V_paths = self.simulate_paths(mu=r, N_paths=N_paths, N_steps=N_steps, T=T, S0=S0, v0=v0, seed=seed)
         S_T = S_paths[:,-1]
         payoffs = np.maximum (S_T-K,0)
         return np.exp(-r*T)*np.mean(payoffs)

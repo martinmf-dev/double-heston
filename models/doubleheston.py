@@ -169,12 +169,14 @@ class DoubleHeston:
         return {"Price_call": Price_call, "Delta": Delta}
 
     
-    def simulate_paths(self, T, S0, v01, v02, N_paths, N_steps, seed):
+    def simulate_paths(self,mu,  T, S0, v01, v02, N_paths, N_steps, seed):
         """
         Simulate asset and variance paths using the scheme by Gauthier and Possamai for the Double Heston model.
     
         Parameters
         ----------
+       mu: float
+            Drift, set mu=r for risk neutral
         N_paths : int
             Number of Monte Carlo paths.
         N_steps : int
@@ -198,7 +200,7 @@ class DoubleHeston:
             Simulated variance 2 paths, shape (N_paths, N_steps).
         """
         
-        r, q = self.r, self.q
+        q = self.q
         kappa1, theta1, sigma1, rho1 = self.kappa1, self.theta1, self.sigma1, self.rho1
         kappa2, theta2, sigma2, rho2 = self.kappa2, self.theta2, self.sigma2, self.rho2
         
@@ -238,7 +240,7 @@ class DoubleHeston:
             V1[:,step] = np.maximum(0,V1[:,step])
             V2[:,step] = V2[:,step-1] + kappa2*(theta2-V2[:,step-1])*dt + sigma2*np.sqrt(V2[:,step-1])*np.sqrt(dt)*G2[:,step]
             V2[:,step] = np.maximum(0,V2[:,step])
-            S[:,step] = np.exp((r-q)*(step)*dt)*np.exp(np.log(np.exp(-(r-q)*(step-1)*dt)*S[:,step-1])
+            S[:,step] = np.exp((mu-q)*(step)*dt)*np.exp(np.log(np.exp(-(mu-q)*(step-1)*dt)*S[:,step-1])
                                                  +K01+K11*V1[:,step-1]+K21*V1[:,step]
                                                  +np.sqrt(K31*(V1[:,step-1]+V1[:,step]))*B1[:,step]
                                                  +K02+K12*V2[:,step-1]+K22*V2[:,step]
@@ -275,7 +277,7 @@ class DoubleHeston:
         """
         
         r = self.r
-        S_paths = self.simulate_paths(N_paths=N_paths, N_steps=N_steps, T=T, S0=S0, v01=v01, v02=v02, seed=seed)[0]
+        S_paths = self.simulate_paths(mu=r,N_paths=N_paths, N_steps=N_steps, T=T, S0=S0, v01=v01, v02=v02, seed=seed)[0]
         S_T = S_paths[:,-1]
         payoffs = np.maximum (S_T-K,0)
         return np.exp(-r*T)*np.mean(payoffs)
