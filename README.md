@@ -15,7 +15,7 @@ This project explored option pricing and delta hedging under the **Double Heston
 Assess the convergence of Monte Carlo estimators for Double Heston option prices against closed-form and high precision MC estimate.
 
 **Outcome:**  
-- Standard deviation decreases roughly as \(1/\sqrt{N}\), confirming expected convergence.  
+- Standard deviation decreases roughly as $1/\sqrt{N}$, confirming expected convergence.  
 - Comparison to large-path MC confirms stable convergence; small Euler discretization bias noted.
 
 **Key Tasks:**  
