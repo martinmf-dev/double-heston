@@ -1,4 +1,3 @@
-# Executive Summary  
 ## The Double Heston Method  
 **Author:** Martin Molina-Fructuoso  
 **Institution:** Erdos Institute - Quant Finance Bootcamp  
