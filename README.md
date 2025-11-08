@@ -1,65 +1,66 @@
-
-# Double Heston Option Pricing and Hedging
-
+# Executive Summary  
+## The Double Heston Method  
 **Author:** Martin Molina-Fructuoso  
-**Institution:** Erdos Institute – Quant Finance Bootcamp  
-**Date:** November 2025  
+**Institution:** Erdos Institute - Quant Finance Bootcamp  
 
 ---
 
-## Overview
-
-This project implements the **Double Heston stochastic volatility model** for option pricing and delta hedging. The library supports:
-
-- Monte Carlo simulation of single and double Heston models  
-- Fourier-based pricing using characteristic functions  
-- Calculation of option Greeks  
-- Hedging portfolio simulations under both correctly specified and mis-specified models  
-
-The implementation is modular, allowing reproducible experiments and extension to alternative stochastic volatility models.
+This project explored option pricing and delta hedging under the **Double Heston stochastic volatility model**, combining Monte Carlo simulations, analytical methods, and hedging experiments to analyze model accuracy and robustness.
 
 ---
 
-## Features
+## Monte Carlo Price and Convergence
 
-- **Monte Carlo Pricing:** Euler discretization for single and double Heston models. Convergence behavior verified against analytical results.  
-- **Analytical Pricing:** Fourier inversion of characteristic functions for European options.  
-- **Delta Hedging:** Simulation of hedging portfolios under various drift and volatility scenarios.  
-- **Model Comparison:** Evaluation of hedging performance under simpler Heston specifications.  
+**Objective:**  
+Assess the convergence of Monte Carlo estimators for Double Heston option prices against closed-form and high precision MC estimate.
+
+**Outcome:**  
+- Standard deviation decreases roughly as \(1/\sqrt{N}\), confirming expected convergence.  
+- Comparison to large-path MC confirms stable convergence; small Euler discretization bias noted.
+
+**Key Tasks:**  
+- Monte Carlo implementation  
+- Numerical convergence analysis  
+- Variance behavior assessment
 
 ---
 
-## Results Summary
+## Delta Hedging under Neutral and Biased Drift
 
-- **Monte Carlo Convergence:** Standard deviation of the estimator decreases approximately as \(1/\sqrt{N}\). Small Euler discretization bias observed for low step counts.  
-- **Delta Hedging:** Hedging portfolios closely track option prices; terminal hedging errors converge to zero with finer rebalancing grids. Deviations under extreme drift values are consistent with theoretical expectations.  
-- **Hedging Mis-specification:** Using simpler Heston models for hedging significantly increases terminal error, highlighting the importance of correctly capturing stochastic volatility factors.
+**Objective:**  
+Evaluate hedging performance using the correct Double Heston model for different drift scenarios.
+
+**Outcome:**  
+- Spread decreases as number of rebalancing steps increases; portfolio tracks option price closely.  
+- Extreme drift values exhibit small deviations; t-tests mostly confirm mean-zero hedging error.
+
+**Key Tasks:**  
+- Delta hedging implementation  
+- Statistical evaluation of hedging errors  
+- Stochastic volatility modeling
 
 ---
 
-## Quick Usage Example
+## Hedging Mis-specification
 
-```python
-from double_heston import DoubleHeston
-import numpy as np
+**Objective:**  
+Investigate the effect of using incorrect hedging models (simpler Heston variants) on hedging performance.
 
-params = {
-    'v0_1': 0.04, 'kappa_1': 2.0, 'theta_1': 0.04, 'sigma_1': 0.3, 'rho_1': -0.7,
-    'v0_2': 0.02, 'kappa_2': 1.0, 'theta_2': 0.02, 'sigma_2': 0.2, 'rho_2': 0.5,
-    'r': 0.01, 'q': 0.0
-}
+**Outcome:**  
+- Correct Double Heston produces terminal error close to zero, symmetric distribution.  
+- Demonstrates that ignoring stochastic volatility factors can significantly degrade hedging performance.
 
-model = DoubleHeston(params)
+**Key Tasks:**  
+- Model misspecification analysis  
+- Risk assessment  
+- Comparative hedging evaluation
 
-S0 = 100
-K = 100
-T = 1.0
-n_paths = 100_000
-n_steps = 252
+---
 
-price = model.price_mc(S0=S0, K=K, T=T, n_paths=n_paths, n_steps=n_steps)
-delta = model.delta_mc(S0=S0, K=K, T=T, n_paths=n_paths, n_steps=n_steps)
+## Future Extensions
 
-print(f"Monte Carlo price: {price:.4f}")
-print(f"Monte Carlo delta: {delta:.4f}")
-
+- **Alternative discretization schemes:** Use Milstein, Quadratic Exponential (QE), or other higher-order methods to reduce bias in Monte Carlo simulations.  
+- **Additional model features:** Incorporate stochastic interest rates, jumps, or correlated factors; analyze sensitivity to parameters.  
+- **Market calibration:** Fit the Double Heston model to real option prices.  
+- **Implied volatility surfaces:** Produce full surfaces across strikes and maturities for risk management, pricing, and scenario analysis.  
+- **Extended hedging strategies:** Test delta, vega, and other Greeks under alternative hedging approaches and more realistic market assumptions.
