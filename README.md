@@ -4,7 +4,7 @@
 
 ---
 
-This project explored option pricing and delta hedging under the **Double Heston stochastic volatility model**, combining Monte Carlo simulations, analytical methods, and hedging experiments to analyze model accuracy and robustness.
+This project explored option pricing and delta hedging under the **Double Heston stochastic volatility model**, combining Monte Carlo simulations, analytical methods, and hedging experiments to analyze model accuracy and robustness. My results can be found in the notebook [DoubleHeston.ipynb](notebooks/DoubleHeston.ipynb) in this repository.
 
 ---
 
