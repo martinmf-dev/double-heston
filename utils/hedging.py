@@ -48,7 +48,7 @@ def delta_hedge(model, mu, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre
         raise ValueError(f"Unknown quad_rule {quad_rule}")
         
     param_str = ", ".join(f"{k}={v}" for k,v in quad_params.items())
-    print(f"{quad_rule} quadrature rule with parameters: {param_str}")
+    #print(f"{quad_rule} quadrature rule with parameters: {param_str}")
 
     
     #  simulate paths
@@ -67,7 +67,7 @@ def delta_hedge(model, mu, K, T, S0, N_paths, N_steps, seed, quad_rule='laguerre
 
     # time to maturity
     Tau = (N_steps - 1 - np.arange(N_steps)) * dt
-    Tau = np.tile(Tau, (N_paths, 1))
+    # Tau = np.tile(Tau, (N_paths, 1))
 
     # initialize arrays for recording
     Cash = np.zeros((N_paths, N_steps))
