@@ -125,7 +125,7 @@ class DoubleHeston:
             f1 = self.cf_vect(Phi=Phi-1j, Tau=Tau, S=S, V1=V1, V2=V2)
             f2 = self.cf_vect(Phi=Phi, Tau=Tau, S=S, V1=V1, V2=V2)
             exp_term = np.exp(-1j*Phi*np.log(K))/(1j*Phi)
-            int1 = np.real(exp_term[np.newaxis,np.newaxis,:]*f1/(S[:,:,np.newaxis]*np.exp((r-q)*Tau[:,:,np.newaxis])))
+            int1 = np.real(exp_term[np.newaxis,np.newaxis,:]*f1/(S[:,:,np.newaxis]*np.exp((r-q)*Tau[np.newaxis,:,np.newaxis])))
             int2 = np.real(exp_term[np.newaxis,np.newaxis,:]*f2)
          
             # Integrals
