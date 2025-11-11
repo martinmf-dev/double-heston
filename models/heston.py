@@ -66,8 +66,8 @@ class Heston:
         # reshape for broadcasting
         S = S[:, :, np.newaxis]  # (N_paths, N_steps, 1)
         V = V[:, :, np.newaxis]  # (N_paths, N_steps, 1)
-        Tau = Tau[:, :, np.newaxis]  # (N_paths, N_steps, 1)
-        Phi = Phi[np.newaxis, np.newaxis, :]  # (1, 1, N_phi)
+        Tau = Tau[:, np.newaxis]   
+        Phi = Phi[np.newaxis, :]  
     
         X = np.log(S)
     
@@ -87,7 +87,7 @@ class Heston:
         G = (1 - c * np.exp(-d * Tau)) / (1 - c)
         C = (r - q) * 1j * Phi * Tau + (kappa * theta) / sigma ** 2 * ((b - rho * sigma * 1j * Phi - d) * Tau - 2 * np.log(G))
     
-        return np.exp(C + D * V + 1j * Phi * X)
+        return np.exp(C[np.newaxis,:,:] + D[np.newaxis,:,:] * V + 1j * Phi[np.newaxis,:,:] * X)
 
     
     def price_greeks_vect(self, K, Tau, S, V, quad_rule, quad_params):

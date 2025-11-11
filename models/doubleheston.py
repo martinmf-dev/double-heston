@@ -75,8 +75,8 @@ class DoubleHeston:
         S = S[:, :, np.newaxis]  # (N_paths, N_steps, 1)
         V1 = V1[:, :, np.newaxis]  # (N_paths, N_steps, 1)
         V2 = V2[:, :, np.newaxis]  # (N_paths, N_steps, 1)
-        Tau = Tau[:, :, np.newaxis]  # (N_paths, N_steps, 1)
-        Phi = Phi[np.newaxis, np.newaxis, :]  # (1, 1, N_phi)
+        Tau = Tau[:, np.newaxis]  
+        Phi = Phi[ np.newaxis, :]  
         
         X = np.log(S)
 
@@ -93,7 +93,7 @@ class DoubleHeston:
         A =( (r-q)*Phi*1j*Tau + (kappa1*theta1)/sigma1**2*((kappa1-rho1*sigma1*Phi*1j-d1)*Tau-2*np.log(G1))
                                + (kappa2*theta2)/sigma2**2*((kappa2-rho2*sigma2*Phi*1j-d2)*Tau-2*np.log(G2)))
     
-        return np.exp(A+1j*Phi*X+B1*V1+B2*V2)
+        return np.exp(A[np.newaxis,:,:]+1j*Phi[np.newaxis,:,:]*X+B1[np.newaxis,:,:]*V1+B2[np.newaxis,:,:]*V2)
 
     
     def price_greeks_vect(self, K, Tau, S, V1, V2, quad_rule, quad_params):
@@ -149,7 +149,7 @@ class DoubleHeston:
             Phi = Phi[np.newaxis,np.newaxis,:]
             W = W[np.newaxis,np.newaxis,:]
             
-            int1 = np.real(W*np.exp(Phi)*exp_term*f1/(S[:,:,np.newaxis]*np.exp((r-q)*Tau[:,:,np.newaxis])))
+            int1 = np.real(W*np.exp(Phi)*exp_term*f1/(S[:,:,np.newaxis]*np.exp((r-q)*Tau[np.newaxis,:,np.newaxis])))
             int2 = np.real(W*np.exp(Phi)*exp_term*f2)
 
             I1 = np.sum(int1, axis=2)
